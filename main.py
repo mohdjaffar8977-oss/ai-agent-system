@@ -1,24 +1,41 @@
 import os
 from dotenv import load_dotenv
-from google import genai
+from fastapi import FastAPI, Request, Response
+import uvicorn
 
-# .env फ़ाइल से वेरिएबल्स लोड करें
 load_dotenv()
 
-api_key = os.getenv("GEMINI_API_KEY")
+app = FastAPI()
 
-client = genai.Client(api_key=api_key)
+# Meta Webhook का Secret Token (इसे .env में भी रख सकते हैं)
+VERIFY_TOKEN = os.getenv("WEBHOOK_VERIFY_TOKEN", "my_secret_token_123")
 
-print("Sending prompt to Gemini...")
+@app.get("/")
+def home():
+    return {"status": "AI Agent Webhook Server is Running"}
 
-try:
-    # Gemini 2.5 Flash मॉडल से रिस्पॉन्स माँगें
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents="Say 'Hello, I am your AI Agent!' in Hindi",
-    )
-    print("\nAI Response:")
-    print(response.text)
-except Exception as e:
-    print("\n[Note: Valid API key needed for live AI response]")
-    print(f"Status: Client initialized with key '{api_key}' successfully.")
+# Meta Verification (GET)
+@app.get("/webhook")
+def verify_webhook(request: Request):
+    params = request.query_params
+    mode = params.get("hub.mode")
+    token = params.get("hub.verify_token")
+    challenge = params.get("hub.challenge")
+
+    if mode and token:
+        if mode == "subscribe" and token == VERIFY_TOKEN:
+            print("WEBHOOK_VERIFIED")
+            return Response(content=challenge, media_type="text/plain")
+        else:
+            return Response(status_code=403)
+    return {"message": "Webhook Endpoint Ready"}
+
+# Incoming Messages (POST)
+@app.post("/webhook")
+async def receive_message(request: Request):
+    data = await request.json()
+    print("Received Message:", data)
+    return {"status": "success"}
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
