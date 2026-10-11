@@ -1,0 +1,66 @@
+import sqlite3
+
+DB_NAME = "agency.db"
+
+def get_connection():
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def init_db():
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS clients (
+            client_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            system_prompt TEXT NOT NULL,
+            phone_number_id TEXT,
+            ai_pause_hours INTEGER DEFAULT 24
+        )
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            client_id INTEGER NOT NULL,
+            customer_number TEXT NOT NULL,
+            role TEXT NOT NULL,
+            text TEXT NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (client_id) REFERENCES clients (client_id)
+        )
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS conversations (
+            client_id INTEGER NOT NULL,
+            customer_number TEXT NOT NULL,
+            ai_paused_until TEXT,
+            PRIMARY KEY (client_id, customer_number)
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+def add_fake_clients():
+    conn = get_connection()
+    cur = conn.cursor()
+    count = cur.execute("SELECT COUNT(*) FROM clients").fetchone()[0]
+    if count == 0:
+        cur.execute(
+            "INSERT INTO clients (name, system_prompt) VALUES (?, ?)",
+            ("Test Kapde Ki Dukaan", "You are a polite assistant for a clothing shop. Reply briefly in Hindi/Hinglish."),
+        )
+        cur.execute(
+            "INSERT INTO clients (name, system_prompt) VALUES (?, ?)",
+            ("Test Clinic", "You are a polite assistant for a clinic. Reply briefly in Hindi/Hinglish. Never give medical advice."),
+        )
+        conn.commit()
+    conn.close()
+
+if __name__ == "__main__":
+    init_db()
+    add_fake_clients()
+    conn = get_connection()
+    for row in conn.execute("SELECT client_id, name FROM clients"):
+        print(row["client_id"], row["name"])
+    conn.close()
