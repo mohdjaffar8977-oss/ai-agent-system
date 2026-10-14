@@ -64,3 +64,49 @@ if __name__ == "__main__":
     for row in conn.execute("SELECT client_id, name FROM clients"):
         print(row["client_id"], row["name"])
     conn.close()
+
+def get_client_by_id(client_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM clients WHERE client_id = ?", (client_id,))
+    client = cursor.fetchone()
+    conn.close()
+    return dict(client) if client else None
+
+
+def get_client_by_phone_number_id(phone_number_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM clients WHERE phone_number_id = ?", (phone_number_id,))
+    client = cursor.fetchone()
+    conn.close()
+    return dict(client) if client else None
+
+
+def save_message(client_id, customer_number, role, text):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO messages (client_id, customer_number, role, text) VALUES (?, ?, ?, ?)",
+        (client_id, customer_number, role, text),
+    )
+    conn.commit()
+    conn.close()
+
+
+def is_ai_paused(client_id, customer_number):
+    from datetime import datetime
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT ai_paused_until FROM conversations WHERE client_id = ? AND customer_number = ?",
+        (client_id, customer_number),
+    )
+    row = cursor.fetchone()
+    conn.close()
+    if not row or not row["ai_paused_until"]:
+        return False
+    try:
+        return datetime.fromisoformat(row["ai_paused_until"]) > datetime.now()
+    except ValueError:
+        return False
