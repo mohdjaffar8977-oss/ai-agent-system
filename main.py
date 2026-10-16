@@ -126,11 +126,11 @@ async def receive_message(request: Request):
 
         client_id = client_data["client_id"]
 
+        save_message(client_id, customer_number, "user", user_message)
         if is_ai_paused(client_id, customer_number):
             print(f"[LOG] AI is currently paused for customer {customer_number}.")
             return {"status": "success", "note": "AI is paused for this customer"}
 
-        save_message(client_id, customer_number, "user", user_message)
 
         ai_reply = generate_ai_reply(client_data, user_message)
 
