@@ -6,6 +6,7 @@ from google import genai
 from google.genai import types
 import uvicorn
 from db import get_client_by_id, get_client_by_phone_number_id, get_connection, save_message, is_ai_paused, pause_client_ai, is_client_ai_paused
+from safety import is_sensitive_message
 
 load_dotenv()
 
@@ -133,6 +134,9 @@ async def receive_message(request: Request):
         if is_client_ai_paused(client_id):
             print(f"[LOG] AI paused for client {client_id} due to Gemini error.")
             return {"status": "success", "note": "AI paused for client due to error"}
+        if is_sensitive_message(user_message):
+            print(f"[LOG] Sensitive message from {customer_number}. AI silent, needs human.")
+            return {"status": "success", "note": "Sensitive message, needs human"}
 
 
         ai_reply = generate_ai_reply(client_data, user_message)
