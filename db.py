@@ -110,3 +110,34 @@ def is_ai_paused(client_id, customer_number):
         return datetime.fromisoformat(row["ai_paused_until"]) > datetime.now()
     except ValueError:
         return False
+
+
+def pause_client_ai(client_id, minutes=5):
+    from datetime import datetime, timedelta
+    until = (datetime.now() + timedelta(minutes=minutes)).isoformat()
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE clients SET ai_error_paused_until = ? WHERE client_id = ?",
+        (until, client_id),
+    )
+    conn.commit()
+    conn.close()
+
+
+def is_client_ai_paused(client_id):
+    from datetime import datetime
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT ai_error_paused_until FROM clients WHERE client_id = ?",
+        (client_id,),
+    )
+    row = cursor.fetchone()
+    conn.close()
+    if not row or not row["ai_error_paused_until"]:
+        return False
+    try:
+        return datetime.fromisoformat(row["ai_error_paused_until"]) > datetime.now()
+    except ValueError:
+        return False

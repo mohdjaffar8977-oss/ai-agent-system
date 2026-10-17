@@ -5,7 +5,7 @@ from fastapi import FastAPI, Request, Response, HTTPException
 from google import genai
 from google.genai import types
 import uvicorn
-from db import get_client_by_id, get_client_by_phone_number_id, get_connection, save_message, is_ai_paused
+from db import get_client_by_id, get_client_by_phone_number_id, get_connection, save_message, is_ai_paused, pause_client_ai, is_client_ai_paused
 
 load_dotenv()
 
@@ -70,7 +70,7 @@ def generate_ai_reply(client_data: dict, user_message: str) -> str:
         return response.text
     except Exception as e:
         print(f"Gemini Error: {e}")
-        return "माफ़ कीजिए, अभी हमारी सेवा में थोड़ी व्यस्तता है। कृपया कुछ देर बाद दोबारा कोशिश करें।"
+        return None
 
 @app.get("/")
 def home():
@@ -130,9 +130,16 @@ async def receive_message(request: Request):
         if is_ai_paused(client_id, customer_number):
             print(f"[LOG] AI is currently paused for customer {customer_number}.")
             return {"status": "success", "note": "AI is paused for this customer"}
+        if is_client_ai_paused(client_id):
+            print(f"[LOG] AI paused for client {client_id} due to Gemini error.")
+            return {"status": "success", "note": "AI paused for client due to error"}
 
 
         ai_reply = generate_ai_reply(client_data, user_message)
+        if ai_reply is None:
+            print(f"[LOG] Gemini failed for client {client_id}. AI paused for 5 minutes.")
+            pause_client_ai(client_id, 5)
+            return {"status": "success", "note": "AI error, no reply sent"}
 
         save_message(client_id, customer_number, "assistant", ai_reply)
 
