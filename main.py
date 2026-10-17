@@ -5,7 +5,7 @@ from fastapi import FastAPI, Request, Response, HTTPException
 from google import genai
 from google.genai import types
 import uvicorn
-from db import get_client_by_id, get_client_by_phone_number_id, get_connection, save_message, is_ai_paused, pause_client_ai, is_client_ai_paused
+from db import get_client_by_id, get_client_by_phone_number_id, get_connection, save_message, is_ai_paused, pause_client_ai, is_client_ai_paused, get_recent_messages
 from safety import is_sensitive_message
 
 load_dotenv()
@@ -52,11 +52,18 @@ def send_whatsapp_message(phone_number_id: str, whatsapp_token: str, to_number: 
         print(f"WhatsApp API Send Error: {e}")
         return False
 
-def generate_ai_reply(client_data: dict, user_message: str) -> str:
+def generate_ai_reply(client_data: dict, user_message: str, history=None) -> str:
     if not ai_client:
         return "माफ़ कीजिए, हमारी AI सेवा अभी उपलब्ध नहीं है।"
 
     system_prompt = client_data.get("system_prompt", "You are a helpful customer support AI agent for a business. Respond politely and concisely in Hindi/Hinglish.")
+    contents = user_message
+    if history:
+        turns = list(history)
+        while turns and turns[0][0] != "user":
+            turns.pop(0)
+        if turns:
+            contents = [types.Content(role="user" if r == "user" else "model", parts=[types.Part(text=t)]) for r, t in turns]
     
     try:
         config = types.GenerateContentConfig(
@@ -65,7 +72,7 @@ def generate_ai_reply(client_data: dict, user_message: str) -> str:
         )
         response = ai_client.models.generate_content(
             model=GEMINI_MODEL,
-            contents=user_message,
+            contents=contents,
             config=config
         )
         return response.text
@@ -139,7 +146,7 @@ async def receive_message(request: Request):
             return {"status": "success", "note": "Sensitive message, needs human"}
 
 
-        ai_reply = generate_ai_reply(client_data, user_message)
+        ai_reply = generate_ai_reply(client_data, user_message, get_recent_messages(client_id, customer_number))
         if ai_reply is None:
             print(f"[LOG] Gemini failed for client {client_id}. AI paused for 5 minutes.")
             pause_client_ai(client_id, 5)

@@ -141,3 +141,15 @@ def is_client_ai_paused(client_id):
         return datetime.fromisoformat(row["ai_error_paused_until"]) > datetime.now()
     except ValueError:
         return False
+
+
+def get_recent_messages(client_id, customer_number, limit=10):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT role, text FROM messages WHERE client_id = ? AND customer_number = ? ORDER BY id DESC LIMIT ?",
+        (client_id, customer_number, limit),
+    )
+    rows = cursor.fetchall()
+    conn.close()
+    return [(r["role"], r["text"]) for r in reversed(rows)]
