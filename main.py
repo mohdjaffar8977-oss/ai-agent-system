@@ -6,7 +6,7 @@ from google import genai
 from google.genai import types
 import uvicorn
 from db import get_client_by_id, get_client_by_phone_number_id, get_connection, save_message, is_ai_paused, pause_client_ai, is_client_ai_paused, get_recent_messages, add_to_human_queue
-from safety import is_sensitive_message
+from safety import is_sensitive_message, reply_problem
 
 load_dotenv()
 
@@ -155,6 +155,11 @@ async def receive_message(request: Request):
             add_to_human_queue(client_id, customer_number, "gemini_error")
             pause_client_ai(client_id, 5)
             return {"status": "success", "note": "AI error, no reply sent"}
+        problem = reply_problem(ai_reply, client_data["system_prompt"])
+        if problem:
+            print(f"[LOG] Reply blocked ({problem}) for {customer_number}. Needs human.")
+            add_to_human_queue(client_id, customer_number, problem)
+            return {"status": "success", "note": "Reply blocked, needs human"}
 
         save_message(client_id, customer_number, "assistant", ai_reply)
 
