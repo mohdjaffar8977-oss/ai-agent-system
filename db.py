@@ -164,3 +164,19 @@ def get_recent_messages(client_id, customer_number, limit=10):
     rows = cursor.fetchall()
     conn.close()
     return [(r["role"], r["text"]) for r in reversed(rows)]
+
+
+def add_to_human_queue(client_id, customer_number, reason):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT 1 FROM human_queue WHERE client_id = ? AND customer_number = ? AND reason = ? AND resolved = 0",
+        (client_id, customer_number, reason),
+    )
+    if not cursor.fetchone():
+        cursor.execute(
+            "INSERT INTO human_queue (client_id, customer_number, reason) VALUES (?, ?, ?)",
+            (client_id, customer_number, reason),
+        )
+        conn.commit()
+    conn.close()

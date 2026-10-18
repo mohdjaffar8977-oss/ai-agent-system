@@ -5,7 +5,7 @@ from fastapi import FastAPI, Request, Response, HTTPException
 from google import genai
 from google.genai import types
 import uvicorn
-from db import get_client_by_id, get_client_by_phone_number_id, get_connection, save_message, is_ai_paused, pause_client_ai, is_client_ai_paused, get_recent_messages
+from db import get_client_by_id, get_client_by_phone_number_id, get_connection, save_message, is_ai_paused, pause_client_ai, is_client_ai_paused, get_recent_messages, add_to_human_queue
 from safety import is_sensitive_message
 
 load_dotenv()
@@ -137,18 +137,22 @@ async def receive_message(request: Request):
         save_message(client_id, customer_number, "user", user_message)
         if is_ai_paused(client_id, customer_number):
             print(f"[LOG] AI is currently paused for customer {customer_number}.")
+            add_to_human_queue(client_id, customer_number, "customer_paused")
             return {"status": "success", "note": "AI is paused for this customer"}
         if is_client_ai_paused(client_id):
             print(f"[LOG] AI paused for client {client_id} due to Gemini error.")
+            add_to_human_queue(client_id, customer_number, "client_paused")
             return {"status": "success", "note": "AI paused for client due to error"}
         if is_sensitive_message(user_message):
             print(f"[LOG] Sensitive message from {customer_number}. AI silent, needs human.")
+            add_to_human_queue(client_id, customer_number, "sensitive")
             return {"status": "success", "note": "Sensitive message, needs human"}
 
 
         ai_reply = generate_ai_reply(client_data, user_message, get_recent_messages(client_id, customer_number))
         if ai_reply is None:
             print(f"[LOG] Gemini failed for client {client_id}. AI paused for 5 minutes.")
+            add_to_human_queue(client_id, customer_number, "gemini_error")
             pause_client_ai(client_id, 5)
             return {"status": "success", "note": "AI error, no reply sent"}
 
