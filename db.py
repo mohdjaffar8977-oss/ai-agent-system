@@ -16,7 +16,8 @@ def init_db():
             name TEXT NOT NULL,
             system_prompt TEXT NOT NULL,
             phone_number_id TEXT,
-            ai_pause_hours INTEGER DEFAULT 24
+            ai_pause_hours INTEGER DEFAULT 24,
+            ai_error_paused_until TEXT
         )
     """)
     cur.execute("""
@@ -36,6 +37,16 @@ def init_db():
             customer_number TEXT NOT NULL,
             ai_paused_until TEXT,
             PRIMARY KEY (client_id, customer_number)
+        )
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS human_queue (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            client_id INTEGER,
+            customer_number TEXT,
+            reason TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            resolved INTEGER DEFAULT 0
         )
     """)
     conn.commit()
