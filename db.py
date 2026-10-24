@@ -163,7 +163,14 @@ def get_recent_messages(client_id, customer_number, limit=10):
     )
     rows = cursor.fetchall()
     conn.close()
-    return [(r["role"], r["text"]) for r in reversed(rows)]
+    msgs = [(r["role"], r["text"]) for r in reversed(rows)]
+    clean = []
+    for i, (role, text) in enumerate(msgs):
+        if role == "user":
+            if i + 1 >= len(msgs) or msgs[i + 1][0] != "assistant":
+                continue
+        clean.append((role, text))
+    return clean
 
 
 def add_to_human_queue(client_id, customer_number, reason):
