@@ -5,7 +5,7 @@ from fastapi import FastAPI, Request, Response, HTTPException
 from google import genai
 from google.genai import types
 import uvicorn
-from db import get_client_by_id, get_client_by_phone_number_id, get_connection, save_message, is_ai_paused, pause_client_ai, is_client_ai_paused, get_recent_messages, add_to_human_queue
+from db import get_client_by_id, get_client_by_phone_number_id, get_connection, save_message, is_ai_paused, pause_client_ai, is_client_ai_paused, get_recent_messages, add_to_human_queue, message_already_seen
 from safety import is_sensitive_message, reply_problem
 
 load_dotenv()
@@ -134,7 +134,12 @@ async def receive_message(request: Request):
 
         client_id = client_data["client_id"]
 
-        save_message(client_id, customer_number, "user", user_message)
+        wa_message_id = msg_obj.get("id")
+        if message_already_seen(client_id, wa_message_id):
+            print(f"[LOG] Duplicate message ignored: {wa_message_id}")
+            return {"status": "success", "note": "Duplicate message ignored"}
+
+        save_message(client_id, customer_number, "user", user_message, wa_message_id)
         if is_ai_paused(client_id, customer_number):
             print(f"[LOG] AI is currently paused for customer {customer_number}.")
             add_to_human_queue(client_id, customer_number, "customer_paused")

@@ -28,6 +28,7 @@ def init_db():
             role TEXT NOT NULL,
             text TEXT NOT NULL,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            wa_message_id TEXT,
             FOREIGN KEY (client_id) REFERENCES clients (client_id)
         )
     """)
@@ -94,15 +95,29 @@ def get_client_by_phone_number_id(phone_number_id):
     return dict(client) if client else None
 
 
-def save_message(client_id, customer_number, role, text):
+def save_message(client_id, customer_number, role, text, wa_message_id=None):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO messages (client_id, customer_number, role, text) VALUES (?, ?, ?, ?)",
-        (client_id, customer_number, role, text),
+        "INSERT INTO messages (client_id, customer_number, role, text, wa_message_id) VALUES (?, ?, ?, ?, ?)",
+        (client_id, customer_number, role, text, wa_message_id),
     )
     conn.commit()
     conn.close()
+
+
+def message_already_seen(client_id, wa_message_id):
+    if not wa_message_id:
+        return False
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT 1 FROM messages WHERE client_id = ? AND wa_message_id = ? LIMIT 1",
+        (client_id, wa_message_id),
+    )
+    found = cursor.fetchone() is not None
+    conn.close()
+    return found
 
 
 def is_ai_paused(client_id, customer_number):
